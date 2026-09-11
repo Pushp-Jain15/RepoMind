@@ -1,23 +1,24 @@
-# ==========================================
-# EXTRACT OWNER AND REPOSITORY
-# FROM GITHUB URL
-# ==========================================
+from urllib.parse import urlparse
 
 def extract_repo_info(github_url):
 
-    # Remove / from the end of the URL
-    github_url = github_url.rstrip("/")
+    parsed_url = urlparse(github_url.strip())
 
-    # Split URL using /
-    parts = github_url.split("/")
-
-    # Check whether URL has enough parts
-    if len(parts) < 2:
+    if parsed_url.scheme not in ("http", "https"):
         raise ValueError("Invalid GitHub URL")
 
-    # Get owner and repository name
-    owner = parts[-2]
+    if parsed_url.hostname != "github.com":
+        raise ValueError("Invalid GitHub URL")
 
-    repo = parts[-1]
+    parts = [part for part in parsed_url.path.split("/") if part]
+
+    if len(parts) != 2:
+        raise ValueError("Invalid GitHub URL")
+
+    owner = parts[0]
+    repo = parts[1].removesuffix(".git")
+
+    if not repo:
+        raise ValueError("Invalid GitHub URL")
 
     return owner, repo
