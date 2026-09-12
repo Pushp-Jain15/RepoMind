@@ -11,7 +11,6 @@ from github_api import (
 from utils import extract_repo_info
 
 
-# Create FastAPI application
 app = FastAPI(
     title="RepoMind API",
     description="AI-powered Software Engineering Intelligence Platform",
@@ -27,35 +26,43 @@ def home():
     }
 
 
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "RepoMind API"
+    }
+
+
 @app.get("/analyze")
 def analyze_repository(url: str):
 
-    # Extract owner and repository name
+    # Step 1: Validate GitHub URL
     try:
         owner, repo = extract_repo_info(url)
 
-    except ValueError:
+    except ValueError as error:
         raise HTTPException(
             status_code=400,
-            detail="Invalid GitHub repository URL"
+            detail=str(error)
         )
 
-    # Get repository information
+    # Step 2: Get repository information
     data = get_repository(owner, repo)
 
     if data is None:
         raise HTTPException(
             status_code=404,
-            detail="Repository not found"
+            detail="Repository not found or unable to access repository"
         )
 
-    # Get other repository information
+    # Step 3: Get additional information
     languages = get_languages(owner, repo)
     contributors = get_contributors(owner, repo)
     commits = get_commits(owner, repo)
     issues = get_issues(owner, repo)
 
-    # Prepare response
+    # Step 4: Prepare clean response
     result = {
         "repository": {
             "name": data["name"],
@@ -69,7 +76,7 @@ def analyze_repository(url: str):
             "url": data["html_url"]
         },
 
-        "languages": languages,
+        "languages": languages or {},
 
         "contributors": {
             "count": len(contributors) if contributors else 0,

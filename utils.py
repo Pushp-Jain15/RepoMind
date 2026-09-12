@@ -1,24 +1,34 @@
 from urllib.parse import urlparse
 
+
 def extract_repo_info(github_url):
+    github_url = github_url.strip().rstrip("/")
 
-    parsed_url = urlparse(github_url.strip())
+    parsed_url = urlparse(github_url)
 
-    if parsed_url.scheme not in ("http", "https"):
-        raise ValueError("Invalid GitHub URL")
+    # Check that URL uses HTTPS
+    if parsed_url.scheme != "https":
+        raise ValueError("GitHub URL must use HTTPS")
 
-    if parsed_url.hostname != "github.com":
-        raise ValueError("Invalid GitHub URL")
+    # Check that URL belongs to GitHub
+    if parsed_url.netloc.lower() != "github.com":
+        raise ValueError("URL must be a GitHub repository URL")
 
-    parts = [part for part in parsed_url.path.split("/") if part]
+    # Get repository path
+    parts = parsed_url.path.strip("/").split("/")
 
+    # GitHub repository URL should contain owner and repo
     if len(parts) != 2:
-        raise ValueError("Invalid GitHub URL")
+        raise ValueError("Invalid GitHub repository URL")
 
     owner = parts[0]
-    repo = parts[1].removesuffix(".git")
+    repo = parts[1]
 
-    if not repo:
-        raise ValueError("Invalid GitHub URL")
+    # Remove .git if user enters a Git clone URL
+    if repo.endswith(".git"):
+        repo = repo[:-4]
+
+    if not owner or not repo:
+        raise ValueError("Invalid GitHub repository URL")
 
     return owner, repo
