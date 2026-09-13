@@ -10,6 +10,8 @@ from github_api import (
 
 from utils import extract_repo_info
 
+from database import SessionLocal, Analysis
+
 
 app = FastAPI(
     title="RepoMind API",
@@ -62,7 +64,23 @@ def analyze_repository(url: str):
     commits = get_commits(owner, repo)
     issues = get_issues(owner, repo)
 
-    # Step 4: Prepare clean response
+    # Step 4: Save analysis to database
+    db = SessionLocal()
+
+    analysis = Analysis(
+        repository_name=data["name"],
+        owner=data["owner"]["login"],
+        stars=data["stargazers_count"],
+        forks=data["forks_count"],
+        open_issues=data["open_issues_count"]
+    )
+
+    db.add(analysis)
+    db.commit()
+    db.refresh(analysis)
+    db.close()
+
+    # Step 5: Prepare response
     result = {
         "repository": {
             "name": data["name"],
@@ -99,7 +117,40 @@ def analyze_repository(url: str):
 
         "issues": {
             "open_issues_fetched": len(issues) if issues else 0
+        },
+
+        "database": {
+            "saved": True,
+            "analysis_id": analysis.id
         }
     }
 
     return result
+
+
+@app.get("/analyses")
+def get_previous_analyses():
+
+    db = SessionLocal()
+
+    analyses = db.query(Analysis).all()
+
+    result = []
+
+    for analysis in analyses:
+        result.append({
+            "id": analysis.id,
+            "repository": analysis.repository_name,
+            "owner": analysis.owner,
+            "stars": analysis.stars,
+            "forks": analysis.forks,
+            "open_issues": analysis.open_issues,
+            "analyzed_at": analysis.analyzed_at
+        })
+
+    db.close()
+
+    return {
+        "count": len(result),
+        "analyses": result
+    }
