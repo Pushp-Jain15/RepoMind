@@ -1,5 +1,18 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
-from sqlalchemy.orm import declarative_base, sessionmaker
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey
+)
+
+from sqlalchemy.orm import (
+    declarative_base,
+    sessionmaker,
+    relationship
+)
+
 from datetime import datetime
 
 
@@ -14,31 +27,72 @@ engine = create_engine(
 )
 
 
-# Create base class
+# Base class
 Base = declarative_base()
 
 
-# Create Analysis table
+# --------------------------------------------------
+# Repository Table
+# --------------------------------------------------
+
+class Repository(Base):
+
+    __tablename__ = "repositories"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    owner = Column(String, nullable=False)
+
+    name = Column(String, nullable=False)
+
+    url = Column(String, unique=True, nullable=False)
+
+    # One repository can have many analyses
+    analyses = relationship(
+        "Analysis",
+        back_populates="repository"
+    )
+
+
+# --------------------------------------------------
+# Analysis Table
+# --------------------------------------------------
+
 class Analysis(Base):
+
     __tablename__ = "analyses"
 
     id = Column(Integer, primary_key=True, index=True)
 
-    repository_name = Column(String)
-    owner = Column(String)
+    repository_id = Column(
+        Integer,
+        ForeignKey("repositories.id"),
+        nullable=False
+    )
 
     stars = Column(Integer)
+
     forks = Column(Integer)
+
     open_issues = Column(Integer)
 
-    analyzed_at = Column(DateTime, default=datetime.utcnow)
+    analyzed_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
+
+    # Connect analysis back to repository
+    repository = relationship(
+        "Repository",
+        back_populates="analyses"
+    )
 
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 
-# Create database session
+# Database session
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
