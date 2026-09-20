@@ -1,46 +1,121 @@
-import requests
+import os
+from pathlib import Path
 
+import requests
+from dotenv import load_dotenv
+
+
+# ============================================================
+# LOAD ENVIRONMENT VARIABLES
+# ============================================================
+
+BASE_DIR = Path(__file__).resolve().parent
+
+load_dotenv(BASE_DIR / ".env")
+
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+
+
+# ============================================================
+# GITHUB API HEADERS
+# ============================================================
+
+HEADERS = {
+    "Accept": "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28"
+}
+
+if GITHUB_TOKEN:
+    HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+
+
+print("GitHub token loaded:", bool(GITHUB_TOKEN))
+
+
+# ============================================================
+# HELPER FUNCTION
+# ============================================================
+
+def github_get(url, params=None):
+    """
+    Send an authenticated GET request to GitHub API.
+    """
+
+    try:
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            params=params,
+            timeout=30
+        )
+
+        if response.status_code == 200:
+            return response.json()
+
+        if response.status_code == 403:
+            print("GitHub API returned 403.")
+            print("Response:", response.text[:300])
+            return None
+
+        if response.status_code == 404:
+            print("GitHub resource not found:", url)
+            return None
+
+        print(
+            f"GitHub API error: {response.status_code} "
+            f"for {url}"
+        )
+
+        return None
+
+    except requests.RequestException as error:
+        print("GitHub request failed:", error)
+        return None
+
+
+# ============================================================
+# REPOSITORY
+# ============================================================
 
 def get_repository(owner, repo):
+
     url = f"https://api.github.com/repos/{owner}/{repo}"
 
-    response = requests.get(url)
+    return github_get(url)
 
-    if response.status_code == 200:
-        return response.json()
 
-    print("Error getting repository:", response.status_code)
-
-    return None
-
+# ============================================================
+# LANGUAGES
+# ============================================================
 
 def get_languages(owner, repo):
+
     url = f"https://api.github.com/repos/{owner}/{repo}/languages"
 
-    response = requests.get(url)
+    return github_get(url)
 
-    if response.status_code == 200:
-        return response.json()
 
-    print("Error getting languages:", response.status_code)
-
-    return None
-
+# ============================================================
+# CONTRIBUTORS
+# ============================================================
 
 def get_contributors(owner, repo):
+
     url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
 
-    response = requests.get(url)
+    params = {
+        "per_page": 100
+    }
 
-    if response.status_code == 200:
-        return response.json()
+    return github_get(url, params=params)
 
-    print("Error getting contributors:", response.status_code)
 
-    return None
-
+# ============================================================
+# COMMITS
+# ============================================================
 
 def get_commits(owner, repo):
+
     all_commits = []
 
     page = 1
@@ -54,19 +129,10 @@ def get_commits(owner, repo):
             "per_page": 100
         }
 
-        response = requests.get(
-            url,
-            params=params
-        )
+        commits = github_get(url, params=params)
 
-        if response.status_code != 200:
-            print(
-                "Error getting commits:",
-                response.status_code
-            )
+        if commits is None:
             break
-
-        commits = response.json()
 
         if not commits:
             break
@@ -78,7 +144,12 @@ def get_commits(owner, repo):
     return all_commits
 
 
+# ============================================================
+# ISSUES
+# ============================================================
+
 def get_issues(owner, repo):
+
     url = f"https://api.github.com/repos/{owner}/{repo}/issues"
 
     params = {
@@ -86,55 +157,38 @@ def get_issues(owner, repo):
         "per_page": 100
     }
 
-    response = requests.get(
-        url,
-        params=params
-    )
-
-    if response.status_code == 200:
-        return response.json()
-
-    print("Error getting issues:", response.status_code)
-
-    return None
+    return github_get(url, params=params)
 
 
-# --------------------------------------------------
-# Get details of a specific commit
-# --------------------------------------------------
+# ============================================================
+# COMMIT DETAILS
+# ============================================================
 
-def get_commit_details(owner, repo, commit_sha):
+def get_commit_details(owner, repo, sha):
 
     url = (
         f"https://api.github.com/repos/"
-        f"{owner}/{repo}/commits/{commit_sha}"
+        f"{owner}/{repo}/commits/{sha}"
     )
 
-    response = requests.get(url)
-
-    if response.status_code == 200:
-        return response.json()
-
-    print(
-        "Error getting commit details:",
-        response.status_code
-    )
-
-    return None
+    return github_get(url)
 
 
-# --------------------------------------------------
-# Analyze changed files
-# --------------------------------------------------
+# ============================================================
+# FILE CHANGE ANALYSIS
+# ============================================================
 
 def analyze_file_changes(owner, repo, commits):
 
     file_stats = {}
 
-    # Analyze first 30 commits
+    # Analyze latest 30 commits
     for commit in commits[:30]:
 
-        sha = commit["sha"]
+        sha = commit.get("sha")
+
+        if not sha:
+            continue
 
         details = get_commit_details(
             owner,
@@ -149,24 +203,33 @@ def analyze_file_changes(owner, repo, commits):
 
         for file in files:
 
-            filename = file["filename"]
+            filename = file.get("filename")
+
+            if not filename:
+                continue
 
             if filename not in file_stats:
 
                 file_stats[filename] = {
                     "changes": 0,
                     "additions": 0,
-                    "deletions": 0
+                    "deletions": 0,
+                    "churn": 0
                 }
+
+            additions = file.get("additions", 0)
+            deletions = file.get("deletions", 0)
 
             file_stats[filename]["changes"] += 1
 
-            file_stats[filename]["additions"] += (
-                file.get("additions", 0)
-            )
+            file_stats[filename]["additions"] += additions
 
-            file_stats[filename]["deletions"] += (
-                file.get("deletions", 0)
+            file_stats[filename]["deletions"] += deletions
+
+            file_stats[filename]["churn"] = (
+                file_stats[filename]["additions"]
+                +
+                file_stats[filename]["deletions"]
             )
 
     return file_stats

@@ -16,36 +16,55 @@ from sqlalchemy.orm import (
 from datetime import datetime
 
 
-# SQLite database
+# ==================================================
+# DATABASE CONFIGURATION
+# ==================================================
+
 DATABASE_URL = "sqlite:///./repomind.db"
 
 
 # Create database engine
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False}
+    connect_args={
+        "check_same_thread": False
+    }
 )
 
 
-# Base class
+# Create base class
 Base = declarative_base()
 
 
-# --------------------------------------------------
-# Repository Table
-# --------------------------------------------------
+# ==================================================
+# REPOSITORY TABLE
+# ==================================================
 
 class Repository(Base):
 
     __tablename__ = "repositories"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
-    owner = Column(String, nullable=False)
+    owner = Column(
+        String,
+        nullable=False
+    )
 
-    name = Column(String, nullable=False)
+    name = Column(
+        String,
+        nullable=False
+    )
 
-    url = Column(String, unique=True, nullable=False)
+    url = Column(
+        String,
+        unique=True,
+        nullable=False
+    )
 
     # One repository can have many analyses
     analyses = relationship(
@@ -54,15 +73,19 @@ class Repository(Base):
     )
 
 
-# --------------------------------------------------
-# Analysis Table
-# --------------------------------------------------
+# ==================================================
+# ANALYSIS TABLE
+# ==================================================
 
 class Analysis(Base):
 
     __tablename__ = "analyses"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(
+        Integer,
+        primary_key=True,
+        index=True
+    )
 
     repository_id = Column(
         Integer,
@@ -81,20 +104,32 @@ class Analysis(Base):
         default=datetime.utcnow
     )
 
-    # Connect analysis back to repository
+    # Connect analysis to repository
     repository = relationship(
         "Repository",
         back_populates="analyses"
     )
 
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# ==================================================
+# CREATE DATABASE TABLES
+# ==================================================
+
+Base.metadata.create_all(
+    bind=engine
+)
 
 
-# Database session
+# ==================================================
+# DATABASE SESSION
+# ==================================================
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
-    bind=engine
+    bind=engine,
+
+    # IMPORTANT:
+    # Keep object values available after commit.
+    expire_on_commit=False
 )

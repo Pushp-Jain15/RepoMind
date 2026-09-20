@@ -5,7 +5,8 @@ from github_api import (
     get_languages,
     get_contributors,
     get_commits,
-    get_issues
+    get_issues,
+    analyze_file_changes
 )
 
 from utils import extract_repo_info
@@ -17,6 +18,10 @@ from database import (
 )
 
 
+# ==================================================
+# FASTAPI APPLICATION
+# ==================================================
+
 app = FastAPI(
     title="RepoMind API",
     description="AI-powered Software Engineering Intelligence Platform",
@@ -24,9 +29,9 @@ app = FastAPI(
 )
 
 
-# --------------------------------------------------
-# Home
-# --------------------------------------------------
+# ==================================================
+# HOME
+# ==================================================
 
 @app.get("/")
 def home():
@@ -37,9 +42,9 @@ def home():
     }
 
 
-# --------------------------------------------------
-# Health Check
-# --------------------------------------------------
+# ==================================================
+# HEALTH CHECK
+# ==================================================
 
 @app.get("/health")
 def health_check():
@@ -50,14 +55,17 @@ def health_check():
     }
 
 
-# --------------------------------------------------
-# Analyze Repository
-# --------------------------------------------------
+# ==================================================
+# ANALYZE REPOSITORY
+# ==================================================
 
 @app.get("/analyze")
 def analyze_repository(url: str):
 
-    # Step 1: Validate URL
+    # --------------------------------------------------
+    # Step 1: Validate GitHub URL
+    # --------------------------------------------------
+
     try:
 
         owner, repo = extract_repo_info(url)
@@ -70,7 +78,10 @@ def analyze_repository(url: str):
         )
 
 
+    # --------------------------------------------------
     # Step 2: Get repository information
+    # --------------------------------------------------
+
     data = get_repository(owner, repo)
 
     if data is None:
@@ -81,38 +92,66 @@ def analyze_repository(url: str):
         )
 
 
-    # Step 3: Get additional information
-    languages = get_languages(owner, repo)
+    # --------------------------------------------------
+    # Step 3: Get additional GitHub information
+    # --------------------------------------------------
 
-    contributors = get_contributors(owner, repo)
+    languages = get_languages(
+        owner,
+        repo
+    )
 
-    commits = get_commits(owner, repo)
+    contributors = get_contributors(
+        owner,
+        repo
+    )
 
-    issues = get_issues(owner, repo)
+    commits = get_commits(
+        owner,
+        repo
+    )
+
+    issues = get_issues(
+        owner,
+        repo
+    )
 
 
     # --------------------------------------------------
-    # Step 4: Open database
+    # Step 4: Analyze changed files
+    # --------------------------------------------------
+
+    file_stats = analyze_file_changes(
+        owner,
+        repo,
+        commits
+    )
+
+
+    # --------------------------------------------------
+    # Step 5: Open database
     # --------------------------------------------------
 
     db = SessionLocal()
 
 
     # --------------------------------------------------
-    # Step 5: Check if repository already exists
+    # Step 6: Check if repository already exists
     # --------------------------------------------------
 
     repository_url = data["html_url"]
 
     repository = (
         db.query(Repository)
-        .filter(Repository.url == repository_url)
+        .filter(
+            Repository.url == repository_url
+        )
         .first()
     )
 
 
     # --------------------------------------------------
-    # Step 6: Create repository if it doesn't exist
+    # Step 7: Create repository if it doesn't exist
     # --------------------------------------------------
 
     if repository is None:
@@ -131,7 +170,7 @@ def analyze_repository(url: str):
 
 
     # --------------------------------------------------
-    # Step 7: Create analysis record
+    # Step 8: Create analysis record
     # --------------------------------------------------
 
     analysis = Analysis(
@@ -154,17 +193,21 @@ def analyze_repository(url: str):
 
 
     # --------------------------------------------------
-    # Step 8: Close database
+    # Step 9: Close database
     # --------------------------------------------------
 
     db.close()
 
 
     # --------------------------------------------------
-    # Step 9: Return response
+    # Step 10: Return complete analysis
     # --------------------------------------------------
 
     return {
+
+        # ----------------------------------------------
+        # Repository information
+        # ----------------------------------------------
 
         "repository": {
 
@@ -190,13 +233,23 @@ def analyze_repository(url: str):
         },
 
 
+        # ----------------------------------------------
+        # Programming languages
+        # ----------------------------------------------
+
         "languages": languages or {},
 
 
+        # ----------------------------------------------
+        # Contributors
+        # ----------------------------------------------
+
         "contributors": {
 
-            "count": len(contributors)
-            if contributors else 0,
+            "count":
+                len(contributors)
+                if contributors
+                else 0,
 
             "top_contributors": [
 
@@ -208,10 +261,16 @@ def analyze_repository(url: str):
         },
 
 
+        # ----------------------------------------------
+        # Commits
+        # ----------------------------------------------
+
         "commits": {
 
-            "count": len(commits)
-            if commits else 0,
+            "count":
+                len(commits)
+                if commits
+                else 0,
 
             "recent_commits": [
 
@@ -222,6 +281,7 @@ def analyze_repository(url: str):
 
                     "message":
                         commit["commit"]["message"]
+
                 }
 
                 for commit in commits[:5]
@@ -230,12 +290,29 @@ def analyze_repository(url: str):
         },
 
 
+        # ----------------------------------------------
+        # Issues
+        # ----------------------------------------------
+
         "issues": {
 
             "open_issues_fetched":
-                len(issues) if issues else 0
+                len(issues)
+                if issues
+                else 0
         },
 
+
+        # ----------------------------------------------
+        # File Change Analysis
+        # ----------------------------------------------
+
+        "file_analysis": file_stats,
+
+
+        # ----------------------------------------------
+        # Database information
+        # ----------------------------------------------
 
         "database": {
 
@@ -250,30 +327,38 @@ def analyze_repository(url: str):
     }
 
 
-# --------------------------------------------------
-# Get All Repositories
-# --------------------------------------------------
+# ==================================================
+# GET ALL REPOSITORIES
+# ==================================================
 
 @app.get("/repositories")
 def get_repositories():
 
     db = SessionLocal()
 
-    repositories = db.query(Repository).all()
+    repositories = (
+        db.query(Repository)
+        .all()
+    )
 
     result = []
+
 
     for repository in repositories:
 
         result.append({
 
-            "id": repository.id,
+            "id":
+                repository.id,
 
-            "owner": repository.owner,
+            "owner":
+                repository.owner,
 
-            "name": repository.name,
+            "name":
+                repository.name,
 
-            "url": repository.url,
+            "url":
+                repository.url,
 
             "analysis_count":
                 len(repository.analyses)
@@ -285,22 +370,27 @@ def get_repositories():
 
     return {
 
-        "count": len(result),
+        "count":
+            len(result),
 
-        "repositories": result
+        "repositories":
+            result
     }
 
 
-# --------------------------------------------------
-# Get Analysis History
-# --------------------------------------------------
+# ==================================================
+# GET ANALYSIS HISTORY
+# ==================================================
 
 @app.get("/analyses")
 def get_previous_analyses():
 
     db = SessionLocal()
 
-    analyses = db.query(Analysis).all()
+    analyses = (
+        db.query(Analysis)
+        .all()
+    )
 
     result = []
 
@@ -337,7 +427,9 @@ def get_previous_analyses():
 
     return {
 
-        "count": len(result),
+        "count":
+            len(result),
 
-        "analyses": result
+        "analyses":
+            result
     }
