@@ -27,11 +27,8 @@ def calculate_file_metrics(file_analysis):
     for filename, stats in file_analysis.items():
 
         total_changes += stats.get("changes", 0)
-
         total_additions += stats.get("additions", 0)
-
         total_deletions += stats.get("deletions", 0)
-
         total_churn += stats.get("churn", 0)
 
     total_files = len(file_analysis)
@@ -52,15 +49,10 @@ def calculate_file_metrics(file_analysis):
 
     return {
         "total_files_analyzed": total_files,
-
         "total_changes": total_changes,
-
         "total_additions": total_additions,
-
         "total_deletions": total_deletions,
-
         "total_churn": total_churn,
-
         "average_churn_per_file": round(
             average_churn,
             2
@@ -71,7 +63,6 @@ def calculate_file_metrics(file_analysis):
                 "file": filename,
                 "changes": stats.get("changes", 0)
             }
-
             for filename, stats in top_changed_files
         ],
 
@@ -82,7 +73,6 @@ def calculate_file_metrics(file_analysis):
                 "additions": stats.get("additions", 0),
                 "deletions": stats.get("deletions", 0)
             }
-
             for filename, stats in top_churn_files
         ]
     }
@@ -125,11 +115,8 @@ def calculate_repository_metrics(
 
     return {
         "contributors": contributor_count,
-
         "commits_analyzed": commit_count,
-
         "open_issues": open_issues,
-
         "file_metrics": file_metrics
     }
 
@@ -145,9 +132,7 @@ def calculate_health_indicators(
     Convert raw repository metrics into
     simple software health indicators.
 
-    These indicators are currently
-    rule-based and will later be improved
-    using statistical and ML-based methods.
+    These indicators are currently rule-based.
     """
 
     file_metrics = repository_metrics.get(
@@ -253,12 +238,143 @@ def calculate_health_indicators(
 
     return {
         "commit_activity": commit_activity,
-
         "code_churn": churn_activity,
-
         "contributor_activity": contributor_activity,
-
         "issue_activity": issue_activity,
-
         "change_activity": change_activity
+    }
+
+
+# ============================================================
+# REPOSITORY HEALTH SCORE
+# ============================================================
+
+def calculate_health_score(
+    health_indicators
+):
+    """
+    Calculate a preliminary repository health score.
+
+    Score starts at 100.
+
+    Risk indicators reduce the score.
+
+    This is a transparent rule-based baseline.
+    It is NOT an ML prediction.
+    """
+
+    score = 100
+
+    # --------------------------------------------------------
+    # Commit Activity
+    # --------------------------------------------------------
+
+    if health_indicators.get(
+        "commit_activity"
+    ) == "HIGH":
+
+        score -= 10
+
+    elif health_indicators.get(
+        "commit_activity"
+    ) == "MEDIUM":
+
+        score -= 5
+
+
+    # --------------------------------------------------------
+    # Code Churn
+    # --------------------------------------------------------
+
+    if health_indicators.get(
+        "code_churn"
+    ) == "HIGH":
+
+        score -= 20
+
+    elif health_indicators.get(
+        "code_churn"
+    ) == "MEDIUM":
+
+        score -= 10
+
+
+    # --------------------------------------------------------
+    # Contributor Activity
+    # --------------------------------------------------------
+
+    if health_indicators.get(
+        "contributor_activity"
+    ) == "HIGH":
+
+        score -= 5
+
+    elif health_indicators.get(
+        "contributor_activity"
+    ) == "MEDIUM":
+
+        score -= 2
+
+
+    # --------------------------------------------------------
+    # Issue Activity
+    # --------------------------------------------------------
+
+    if health_indicators.get(
+        "issue_activity"
+    ) == "HIGH":
+
+        score -= 20
+
+    elif health_indicators.get(
+        "issue_activity"
+    ) == "MEDIUM":
+
+        score -= 10
+
+
+    # --------------------------------------------------------
+    # Change Activity
+    # --------------------------------------------------------
+
+    if health_indicators.get(
+        "change_activity"
+    ) == "HIGH":
+
+        score -= 15
+
+    elif health_indicators.get(
+        "change_activity"
+    ) == "MEDIUM":
+
+        score -= 7
+
+
+    # --------------------------------------------------------
+    # Keep score between 0 and 100
+    # --------------------------------------------------------
+
+    score = max(
+        0,
+        min(100, score)
+    )
+
+
+    # --------------------------------------------------------
+    # Health category
+    # --------------------------------------------------------
+
+    if score >= 80:
+        category = "HEALTHY"
+
+    elif score >= 60:
+        category = "MODERATE"
+
+    else:
+        category = "AT_RISK"
+
+
+    return {
+        "score": score,
+        "category": category
     }
