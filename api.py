@@ -11,7 +11,10 @@ from github_api import (
 
 from utils import extract_repo_info
 
-from metrics import calculate_repository_metrics
+from metrics import (
+    calculate_repository_metrics,
+    calculate_health_indicators
+)
 
 from database import SessionLocal, Repository, Analysis
 
@@ -137,6 +140,15 @@ def analyze_repository(url: str):
     )
 
 
+    # --------------------------------------------------------
+    # 6. Calculate health indicators
+    # --------------------------------------------------------
+
+    health_indicators = calculate_health_indicators(
+        repository_metrics
+    )
+
+
     # ========================================================
     # DATABASE
     # ========================================================
@@ -146,7 +158,7 @@ def analyze_repository(url: str):
     try:
 
         # ----------------------------------------------------
-        # 6. Check if repository already exists
+        # 7. Check if repository already exists
         # ----------------------------------------------------
 
         repository = db.query(Repository).filter(
@@ -155,7 +167,7 @@ def analyze_repository(url: str):
 
 
         # ----------------------------------------------------
-        # 7. Create repository if it doesn't exist
+        # 8. Create repository if it doesn't exist
         # ----------------------------------------------------
 
         if repository is None:
@@ -174,7 +186,7 @@ def analyze_repository(url: str):
 
 
         # ----------------------------------------------------
-        # 8. Store analysis
+        # 9. Store analysis
         # ----------------------------------------------------
 
         analysis = Analysis(
@@ -199,6 +211,10 @@ def analyze_repository(url: str):
     # ========================================================
 
     result = {
+
+        # ----------------------------------------------------
+        # REPOSITORY
+        # ----------------------------------------------------
 
         "repository": {
 
@@ -309,7 +325,14 @@ def analyze_repository(url: str):
         # SOFTWARE METRICS
         # ----------------------------------------------------
 
-        "metrics": repository_metrics
+        "metrics": repository_metrics,
+
+
+        # ----------------------------------------------------
+        # HEALTH INDICATORS
+        # ----------------------------------------------------
+
+        "health_indicators": health_indicators
 
     }
 
