@@ -13,7 +13,8 @@ from utils import extract_repo_info
 
 from metrics import (
     calculate_repository_metrics,
-    calculate_health_indicators
+    calculate_health_indicators,
+    calculate_health_score
 )
 
 from database import SessionLocal, Repository, Analysis
@@ -65,6 +66,7 @@ def analyze_repository(url: str):
     # --------------------------------------------------------
 
     try:
+
         owner, repo = extract_repo_info(url)
 
     except ValueError as error:
@@ -149,6 +151,15 @@ def analyze_repository(url: str):
     )
 
 
+    # --------------------------------------------------------
+    # 7. Calculate health score
+    # --------------------------------------------------------
+
+    health_score = calculate_health_score(
+        health_indicators
+    )
+
+
     # ========================================================
     # DATABASE
     # ========================================================
@@ -158,16 +169,18 @@ def analyze_repository(url: str):
     try:
 
         # ----------------------------------------------------
-        # 7. Check if repository already exists
+        # 8. Check if repository already exists
         # ----------------------------------------------------
 
-        repository = db.query(Repository).filter(
+        repository = db.query(
+            Repository
+        ).filter(
             Repository.url == data["html_url"]
         ).first()
 
 
         # ----------------------------------------------------
-        # 8. Create repository if it doesn't exist
+        # 9. Create repository if it doesn't exist
         # ----------------------------------------------------
 
         if repository is None:
@@ -186,7 +199,7 @@ def analyze_repository(url: str):
 
 
         # ----------------------------------------------------
-        # 9. Store analysis
+        # 10. Store analysis
         # ----------------------------------------------------
 
         analysis = Analysis(
@@ -332,7 +345,14 @@ def analyze_repository(url: str):
         # HEALTH INDICATORS
         # ----------------------------------------------------
 
-        "health_indicators": health_indicators
+        "health_indicators": health_indicators,
+
+
+        # ----------------------------------------------------
+        # HEALTH SCORE
+        # ----------------------------------------------------
+
+        "health_score": health_score
 
     }
 
