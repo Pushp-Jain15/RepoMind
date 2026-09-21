@@ -27,8 +27,11 @@ def calculate_file_metrics(file_analysis):
     for filename, stats in file_analysis.items():
 
         total_changes += stats.get("changes", 0)
+
         total_additions += stats.get("additions", 0)
+
         total_deletions += stats.get("deletions", 0)
+
         total_churn += stats.get("churn", 0)
 
     total_files = len(file_analysis)
@@ -49,10 +52,15 @@ def calculate_file_metrics(file_analysis):
 
     return {
         "total_files_analyzed": total_files,
+
         "total_changes": total_changes,
+
         "total_additions": total_additions,
+
         "total_deletions": total_deletions,
+
         "total_churn": total_churn,
+
         "average_churn_per_file": round(
             average_churn,
             2
@@ -63,6 +71,7 @@ def calculate_file_metrics(file_analysis):
                 "file": filename,
                 "changes": stats.get("changes", 0)
             }
+
             for filename, stats in top_changed_files
         ],
 
@@ -73,6 +82,7 @@ def calculate_file_metrics(file_analysis):
                 "additions": stats.get("additions", 0),
                 "deletions": stats.get("deletions", 0)
             }
+
             for filename, stats in top_churn_files
         ]
     }
@@ -115,8 +125,11 @@ def calculate_repository_metrics(
 
     return {
         "contributors": contributor_count,
+
         "commits_analyzed": commit_count,
+
         "open_issues": open_issues,
+
         "file_metrics": file_metrics
     }
 
@@ -165,7 +178,6 @@ def calculate_health_indicators(
         0
     )
 
-
     # --------------------------------------------------------
     # Commit Activity
     # --------------------------------------------------------
@@ -178,7 +190,6 @@ def calculate_health_indicators(
 
     else:
         commit_activity = "LOW"
-
 
     # --------------------------------------------------------
     # Code Churn
@@ -193,7 +204,6 @@ def calculate_health_indicators(
     else:
         churn_activity = "LOW"
 
-
     # --------------------------------------------------------
     # Contributor Activity
     # --------------------------------------------------------
@@ -206,7 +216,6 @@ def calculate_health_indicators(
 
     else:
         contributor_activity = "LOW"
-
 
     # --------------------------------------------------------
     # Issue Activity
@@ -221,7 +230,6 @@ def calculate_health_indicators(
     else:
         issue_activity = "LOW"
 
-
     # --------------------------------------------------------
     # Change Activity
     # --------------------------------------------------------
@@ -235,12 +243,15 @@ def calculate_health_indicators(
     else:
         change_activity = "LOW"
 
-
     return {
         "commit_activity": commit_activity,
+
         "code_churn": churn_activity,
+
         "contributor_activity": contributor_activity,
+
         "issue_activity": issue_activity,
+
         "change_activity": change_activity
     }
 
@@ -281,7 +292,6 @@ def calculate_health_score(
 
         score -= 5
 
-
     # --------------------------------------------------------
     # Code Churn
     # --------------------------------------------------------
@@ -297,7 +307,6 @@ def calculate_health_score(
     ) == "MEDIUM":
 
         score -= 10
-
 
     # --------------------------------------------------------
     # Contributor Activity
@@ -315,7 +324,6 @@ def calculate_health_score(
 
         score -= 2
 
-
     # --------------------------------------------------------
     # Issue Activity
     # --------------------------------------------------------
@@ -331,7 +339,6 @@ def calculate_health_score(
     ) == "MEDIUM":
 
         score -= 10
-
 
     # --------------------------------------------------------
     # Change Activity
@@ -349,7 +356,6 @@ def calculate_health_score(
 
         score -= 7
 
-
     # --------------------------------------------------------
     # Keep score between 0 and 100
     # --------------------------------------------------------
@@ -358,7 +364,6 @@ def calculate_health_score(
         0,
         min(100, score)
     )
-
 
     # --------------------------------------------------------
     # Health category
@@ -373,8 +378,157 @@ def calculate_health_score(
     else:
         category = "AT_RISK"
 
-
     return {
         "score": score,
         "category": category
     }
+
+
+# ============================================================
+# FILE-LEVEL RISK INDICATORS
+# ============================================================
+
+def calculate_file_risk_indicators(
+    file_analysis
+):
+    """
+    Identify potentially risky files using
+    file change frequency and code churn.
+
+    This is a rule-based baseline.
+
+    It is NOT an ML prediction.
+    """
+
+    if not file_analysis:
+        return []
+
+    risk_files = []
+
+    for filename, stats in file_analysis.items():
+
+        changes = stats.get(
+            "changes",
+            0
+        )
+
+        additions = stats.get(
+            "additions",
+            0
+        )
+
+        deletions = stats.get(
+            "deletions",
+            0
+        )
+
+        churn = stats.get(
+            "churn",
+            additions + deletions
+        )
+
+        # ----------------------------------------------------
+        # Calculate risk points
+        # ----------------------------------------------------
+
+        risk_points = 0
+
+        reasons = []
+
+        # High number of changes
+        if changes >= 20:
+
+            risk_points += 2
+
+            reasons.append(
+                "Frequently modified"
+            )
+
+        elif changes >= 10:
+
+            risk_points += 1
+
+            reasons.append(
+                "Regularly modified"
+            )
+
+        # High churn
+        if churn >= 1000:
+
+            risk_points += 3
+
+            reasons.append(
+                "Very high code churn"
+            )
+
+        elif churn >= 500:
+
+            risk_points += 2
+
+            reasons.append(
+                "High code churn"
+            )
+
+        elif churn >= 200:
+
+            risk_points += 1
+
+            reasons.append(
+                "Moderate code churn"
+            )
+
+        # ----------------------------------------------------
+        # Convert points into risk level
+        # ----------------------------------------------------
+
+        if risk_points >= 4:
+
+            risk_level = "HIGH"
+
+        elif risk_points >= 2:
+
+            risk_level = "MEDIUM"
+
+        else:
+
+            risk_level = "LOW"
+
+        # ----------------------------------------------------
+        # Only include files with some activity
+        # ----------------------------------------------------
+
+        if risk_points > 0:
+
+            risk_files.append({
+
+                "file": filename,
+
+                "changes": changes,
+
+                "additions": additions,
+
+                "deletions": deletions,
+
+                "churn": churn,
+
+                "risk_points": risk_points,
+
+                "risk_level": risk_level,
+
+                "reasons": reasons
+
+            })
+
+    # --------------------------------------------------------
+    # Sort highest risk first
+    # --------------------------------------------------------
+
+    risk_files.sort(
+        key=lambda item: (
+            item["risk_points"],
+            item["churn"]
+        ),
+        reverse=True
+    )
+
+    return risk_files[:20]
