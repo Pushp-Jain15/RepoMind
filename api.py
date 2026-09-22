@@ -14,15 +14,12 @@ from utils import extract_repo_info
 from metrics import (
     calculate_repository_metrics,
     calculate_health_indicators,
-    calculate_health_score
+    calculate_health_score,
+    calculate_file_risk_indicators
 )
 
 from database import SessionLocal, Repository, Analysis
 
-
-# ============================================================
-# FASTAPI APPLICATION
-# ============================================================
 
 app = FastAPI(
     title="RepoMind API",
@@ -30,10 +27,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-
-# ============================================================
-# HOME
-# ============================================================
 
 @app.get("/")
 def home():
@@ -43,10 +36,6 @@ def home():
     }
 
 
-# ============================================================
-# HEALTH CHECK
-# ============================================================
-
 @app.get("/health")
 def health_check():
     return {
@@ -54,74 +43,52 @@ def health_check():
     }
 
 
-# ============================================================
-# ANALYZE REPOSITORY
-# ============================================================
-
 @app.get("/analyze")
 def analyze_repository(url: str):
 
-    # --------------------------------------------------------
-    # 1. Validate and extract repository information
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 1: Validate GitHub URL
+    # -----------------------------------
 
     try:
-
         owner, repo = extract_repo_info(url)
 
     except ValueError as error:
-
         raise HTTPException(
             status_code=400,
             detail=str(error)
         )
 
 
-    # --------------------------------------------------------
-    # 2. Get repository information from GitHub
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 2: Get repository information
+    # -----------------------------------
 
-    data = get_repository(
-        owner,
-        repo
-    )
+    data = get_repository(owner, repo)
 
     if data is None:
-
         raise HTTPException(
             status_code=404,
             detail="Repository not found or unable to access repository"
         )
 
 
-    # --------------------------------------------------------
-    # 3. Collect GitHub data
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 3: Collect GitHub data
+    # -----------------------------------
 
-    languages = get_languages(
-        owner,
-        repo
-    )
+    languages = get_languages(owner, repo)
 
-    contributors = get_contributors(
-        owner,
-        repo
-    )
+    contributors = get_contributors(owner, repo)
 
-    commits = get_commits(
-        owner,
-        repo
-    )
+    commits = get_commits(owner, repo)
 
-    issues = get_issues(
-        owner,
-        repo
-    )
+    issues = get_issues(owner, repo)
 
 
-    # --------------------------------------------------------
-    # 4. Analyze changed files
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 4: Analyze file changes
+    # -----------------------------------
 
     file_stats = analyze_file_changes(
         owner,
@@ -130,9 +97,18 @@ def analyze_repository(url: str):
     )
 
 
-    # --------------------------------------------------------
-    # 5. Calculate software metrics
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 5: Calculate file risk
+    # -----------------------------------
+
+    file_risk = calculate_file_risk_indicators(
+        file_stats
+    )
+
+
+    # -----------------------------------
+    # Step 6: Calculate repository metrics
+    # -----------------------------------
 
     repository_metrics = calculate_repository_metrics(
         data,
@@ -142,35 +118,31 @@ def analyze_repository(url: str):
     )
 
 
-    # --------------------------------------------------------
-    # 6. Calculate health indicators
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 7: Calculate health indicators
+    # -----------------------------------
 
     health_indicators = calculate_health_indicators(
         repository_metrics
     )
 
 
-    # --------------------------------------------------------
-    # 7. Calculate health score
-    # --------------------------------------------------------
+    # -----------------------------------
+    # Step 8: Calculate health score
+    # -----------------------------------
 
     health_score = calculate_health_score(
         health_indicators
     )
 
 
-    # ========================================================
-    # DATABASE
-    # ========================================================
+    # -----------------------------------
+    # Step 9: Save analysis to database
+    # -----------------------------------
 
     db = SessionLocal()
 
     try:
-
-        # ----------------------------------------------------
-        # 8. Check if repository already exists
-        # ----------------------------------------------------
 
         repository = db.query(
             Repository
@@ -179,10 +151,7 @@ def analyze_repository(url: str):
         ).first()
 
 
-        # ----------------------------------------------------
-        # 9. Create repository if it doesn't exist
-        # ----------------------------------------------------
-
+        # Create repository if it doesn't exist
         if repository is None:
 
             repository = Repository(
@@ -198,10 +167,7 @@ def analyze_repository(url: str):
             db.refresh(repository)
 
 
-        # ----------------------------------------------------
-        # 10. Store analysis
-        # ----------------------------------------------------
-
+        # Create analysis record
         analysis = Analysis(
             repository_id=repository.id,
             stars=data["stargazers_count"],
@@ -219,15 +185,11 @@ def analyze_repository(url: str):
         db.close()
 
 
-    # ========================================================
-    # API RESPONSE
-    # ========================================================
+    # -----------------------------------
+    # Step 10: Prepare API response
+    # -----------------------------------
 
     result = {
-
-        # ----------------------------------------------------
-        # REPOSITORY
-        # ----------------------------------------------------
 
         "repository": {
 
@@ -248,20 +210,11 @@ def analyze_repository(url: str):
             "updated_at": data["updated_at"],
 
             "url": data["html_url"]
-
         },
 
 
-        # ----------------------------------------------------
-        # LANGUAGES
-        # ----------------------------------------------------
-
         "languages": languages,
 
-
-        # ----------------------------------------------------
-        # CONTRIBUTORS
-        # ----------------------------------------------------
 
         "contributors": {
 
@@ -276,17 +229,10 @@ def analyze_repository(url: str):
                 for contributor in contributors[:5]
 
             ]
-
             if contributors
-
             else []
-
         },
 
-
-        # ----------------------------------------------------
-        # COMMITS
-        # ----------------------------------------------------
 
         "commits": {
 
@@ -300,69 +246,47 @@ def analyze_repository(url: str):
                     "author": commit["commit"]["author"]["name"],
 
                     "message": commit["commit"]["message"]
-
                 }
 
                 for commit in commits[:5]
 
             ]
-
             if commits
-
             else []
-
         },
 
-
-        # ----------------------------------------------------
-        # ISSUES
-        # ----------------------------------------------------
 
         "issues": {
 
             "open_issues_fetched": len(issues)
             if issues
             else 0
-
         },
 
 
-        # ----------------------------------------------------
-        # FILE ANALYSIS
-        # ----------------------------------------------------
-
+        # Raw file change information
         "file_analysis": file_stats,
 
 
-        # ----------------------------------------------------
-        # SOFTWARE METRICS
-        # ----------------------------------------------------
+        # NEW — File-level risk analysis
+        "file_risk": file_risk,
 
+
+        # Repository-level metrics
         "metrics": repository_metrics,
 
 
-        # ----------------------------------------------------
-        # HEALTH INDICATORS
-        # ----------------------------------------------------
-
+        # Repository health indicators
         "health_indicators": health_indicators,
 
 
-        # ----------------------------------------------------
-        # HEALTH SCORE
-        # ----------------------------------------------------
-
+        # Repository health score
         "health_score": health_score
-
     }
 
 
     return result
 
-
-# ============================================================
-# GET ALL REPOSITORIES
-# ============================================================
 
 @app.get("/repositories")
 def get_all_repositories():
@@ -375,6 +299,7 @@ def get_all_repositories():
             Repository
         ).all()
 
+
         return [
 
             {
@@ -385,21 +310,16 @@ def get_all_repositories():
                 "name": repository.name,
 
                 "url": repository.url
-
             }
 
             for repository in repositories
-
         ]
+
 
     finally:
 
         db.close()
 
-
-# ============================================================
-# GET ALL ANALYSES
-# ============================================================
 
 @app.get("/analyses")
 def get_all_analyses():
@@ -411,6 +331,7 @@ def get_all_analyses():
         analyses = db.query(
             Analysis
         ).all()
+
 
         return [
 
@@ -426,12 +347,11 @@ def get_all_analyses():
                 "open_issues": analysis.open_issues,
 
                 "analyzed_at": analysis.analyzed_at
-
             }
 
             for analysis in analyses
-
         ]
+
 
     finally:
 
