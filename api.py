@@ -15,10 +15,15 @@ from metrics import (
     calculate_repository_metrics,
     calculate_health_indicators,
     calculate_health_score,
-    calculate_file_risk_indicators
+    calculate_file_risk_indicators,
+    calculate_risk_summary
 )
 
-from database import SessionLocal, Repository, Analysis
+from database import (
+    SessionLocal,
+    Repository,
+    Analysis
+)
 
 
 app = FastAPI(
@@ -30,6 +35,7 @@ app = FastAPI(
 
 @app.get("/")
 def home():
+
     return {
         "message": "Welcome to RepoMind API",
         "status": "running"
@@ -38,6 +44,7 @@ def home():
 
 @app.get("/health")
 def health_check():
+
     return {
         "status": "healthy"
     }
@@ -51,9 +58,13 @@ def analyze_repository(url: str):
     # -----------------------------------
 
     try:
-        owner, repo = extract_repo_info(url)
+
+        owner, repo = extract_repo_info(
+            url
+        )
 
     except ValueError as error:
+
         raise HTTPException(
             status_code=400,
             detail=str(error)
@@ -64,9 +75,13 @@ def analyze_repository(url: str):
     # Step 2: Get repository information
     # -----------------------------------
 
-    data = get_repository(owner, repo)
+    data = get_repository(
+        owner,
+        repo
+    )
 
     if data is None:
+
         raise HTTPException(
             status_code=404,
             detail="Repository not found or unable to access repository"
@@ -77,13 +92,25 @@ def analyze_repository(url: str):
     # Step 3: Collect GitHub data
     # -----------------------------------
 
-    languages = get_languages(owner, repo)
+    languages = get_languages(
+        owner,
+        repo
+    )
 
-    contributors = get_contributors(owner, repo)
+    contributors = get_contributors(
+        owner,
+        repo
+    )
 
-    commits = get_commits(owner, repo)
+    commits = get_commits(
+        owner,
+        repo
+    )
 
-    issues = get_issues(owner, repo)
+    issues = get_issues(
+        owner,
+        repo
+    )
 
 
     # -----------------------------------
@@ -107,7 +134,16 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 6: Calculate repository metrics
+    # Step 6: Calculate risk summary
+    # -----------------------------------
+
+    risk_summary = calculate_risk_summary(
+        file_risk
+    )
+
+
+    # -----------------------------------
+    # Step 7: Calculate repository metrics
     # -----------------------------------
 
     repository_metrics = calculate_repository_metrics(
@@ -119,7 +155,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 7: Calculate health indicators
+    # Step 8: Calculate health indicators
     # -----------------------------------
 
     health_indicators = calculate_health_indicators(
@@ -128,7 +164,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 8: Calculate health score
+    # Step 9: Calculate health score
     # -----------------------------------
 
     health_score = calculate_health_score(
@@ -137,7 +173,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 9: Save analysis to database
+    # Step 10: Save analysis
     # -----------------------------------
 
     db = SessionLocal()
@@ -151,31 +187,61 @@ def analyze_repository(url: str):
         ).first()
 
 
-        # Create repository if it doesn't exist
         if repository is None:
 
             repository = Repository(
-                owner=data["owner"]["login"],
-                name=data["name"],
-                url=data["html_url"]
+
+                owner=data[
+                    "owner"
+                ][
+                    "login"
+                ],
+
+                name=data[
+                    "name"
+                ],
+
+                url=data[
+                    "html_url"
+                ]
             )
 
-            db.add(repository)
+            db.add(
+                repository
+            )
 
             db.commit()
 
-            db.refresh(repository)
+            db.refresh(
+                repository
+            )
 
 
-        # Create analysis record
         analysis = Analysis(
-            repository_id=repository.id,
-            stars=data["stargazers_count"],
-            forks=data["forks_count"],
-            open_issues=data["open_issues_count"]
+
+            repository_id=
+                repository.id,
+
+            stars=
+                data[
+                    "stargazers_count"
+                ],
+
+            forks=
+                data[
+                    "forks_count"
+                ],
+
+            open_issues=
+                data[
+                    "open_issues_count"
+                ]
         )
 
-        db.add(analysis)
+
+        db.add(
+            analysis
+        )
 
         db.commit()
 
@@ -186,102 +252,140 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 10: Prepare API response
+    # Step 11: API response
     # -----------------------------------
 
     result = {
 
         "repository": {
 
-            "name": data["name"],
+            "name":
+                data["name"],
 
-            "owner": data["owner"]["login"],
+            "owner":
+                data["owner"]["login"],
 
-            "description": data["description"],
+            "description":
+                data["description"],
 
-            "stars": data["stargazers_count"],
+            "stars":
+                data["stargazers_count"],
 
-            "forks": data["forks_count"],
+            "forks":
+                data["forks_count"],
 
-            "open_issues": data["open_issues_count"],
+            "open_issues":
+                data["open_issues_count"],
 
-            "created_at": data["created_at"],
+            "created_at":
+                data["created_at"],
 
-            "updated_at": data["updated_at"],
+            "updated_at":
+                data["updated_at"],
 
-            "url": data["html_url"]
+            "url":
+                data["html_url"]
         },
 
 
-        "languages": languages,
+        "languages":
+            languages,
 
 
         "contributors": {
 
-            "count": len(contributors)
-            if contributors
-            else 0,
+            "count":
+                len(contributors)
+                if contributors
+                else 0,
 
             "top_contributors": [
 
-                contributor["login"]
+                contributor[
+                    "login"
+                ]
 
-                for contributor in contributors[:5]
+                for contributor
+                in contributors[:5]
 
             ]
+
             if contributors
+
             else []
         },
 
 
         "commits": {
 
-            "count": len(commits)
-            if commits
-            else 0,
+            "count":
+                len(commits)
+                if commits
+                else 0,
 
             "recent_commits": [
 
                 {
-                    "author": commit["commit"]["author"]["name"],
 
-                    "message": commit["commit"]["message"]
+                    "author":
+                        commit[
+                            "commit"
+                        ][
+                            "author"
+                        ][
+                            "name"
+                        ],
+
+                    "message":
+                        commit[
+                            "commit"
+                        ][
+                            "message"
+                        ]
                 }
 
-                for commit in commits[:5]
+                for commit
+                in commits[:5]
 
             ]
+
             if commits
+
             else []
         },
 
 
         "issues": {
 
-            "open_issues_fetched": len(issues)
-            if issues
-            else 0
+            "open_issues_fetched":
+                len(issues)
+                if issues
+                else 0
         },
 
 
-        # Raw file change information
-        "file_analysis": file_stats,
+        "file_analysis":
+            file_stats,
 
 
-        # NEW — File-level risk analysis
-        "file_risk": file_risk,
+        "file_risk":
+            file_risk,
 
 
-        # Repository-level metrics
-        "metrics": repository_metrics,
+        "risk_summary":
+            risk_summary,
 
 
-        # Repository health indicators
-        "health_indicators": health_indicators,
+        "metrics":
+            repository_metrics,
 
 
-        # Repository health score
-        "health_score": health_score
+        "health_indicators":
+            health_indicators,
+
+
+        "health_score":
+            health_score
     }
 
 
@@ -303,16 +407,22 @@ def get_all_repositories():
         return [
 
             {
-                "id": repository.id,
 
-                "owner": repository.owner,
+                "id":
+                    repository.id,
 
-                "name": repository.name,
+                "owner":
+                    repository.owner,
 
-                "url": repository.url
+                "name":
+                    repository.name,
+
+                "url":
+                    repository.url
             }
 
-            for repository in repositories
+            for repository
+            in repositories
         ]
 
 
@@ -336,20 +446,28 @@ def get_all_analyses():
         return [
 
             {
-                "id": analysis.id,
 
-                "repository_id": analysis.repository_id,
+                "id":
+                    analysis.id,
 
-                "stars": analysis.stars,
+                "repository_id":
+                    analysis.repository_id,
 
-                "forks": analysis.forks,
+                "stars":
+                    analysis.stars,
 
-                "open_issues": analysis.open_issues,
+                "forks":
+                    analysis.forks,
 
-                "analyzed_at": analysis.analyzed_at
+                "open_issues":
+                    analysis.open_issues,
+
+                "analyzed_at":
+                    analysis.analyzed_at
             }
 
-            for analysis in analyses
+            for analysis
+            in analyses
         ]
 
 
