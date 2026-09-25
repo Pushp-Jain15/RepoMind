@@ -16,7 +16,8 @@ from metrics import (
     calculate_health_indicators,
     calculate_health_score,
     calculate_file_risk_indicators,
-    calculate_risk_summary
+    calculate_risk_summary,
+    calculate_risk_reason_summary
 )
 
 from database import (
@@ -143,7 +144,16 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 7: Calculate repository metrics
+    # Step 7: Calculate risk reasons
+    # -----------------------------------
+
+    risk_reason_summary = calculate_risk_reason_summary(
+        file_risk
+    )
+
+
+    # -----------------------------------
+    # Step 8: Calculate repository metrics
     # -----------------------------------
 
     repository_metrics = calculate_repository_metrics(
@@ -155,7 +165,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 8: Calculate health indicators
+    # Step 9: Calculate health indicators
     # -----------------------------------
 
     health_indicators = calculate_health_indicators(
@@ -164,7 +174,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 9: Calculate health score
+    # Step 10: Calculate health score
     # -----------------------------------
 
     health_score = calculate_health_score(
@@ -173,7 +183,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 10: Save analysis
+    # Step 11: Save analysis
     # -----------------------------------
 
     db = SessionLocal()
@@ -252,7 +262,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 11: API response
+    # Step 12: API response
     # -----------------------------------
 
     result = {
@@ -374,6 +384,10 @@ def analyze_repository(url: str):
 
         "risk_summary":
             risk_summary,
+
+
+        "risk_reason_summary":
+            risk_reason_summary,
 
 
         "metrics":
