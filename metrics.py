@@ -1,9 +1,7 @@
 def calculate_file_metrics(file_analysis):
-    """
-    Calculate overall metrics from file-level Git history.
-    """
 
     if not file_analysis:
+
         return {
             "total_files_analyzed": 0,
             "total_changes": 0,
@@ -15,10 +13,12 @@ def calculate_file_metrics(file_analysis):
             "top_churn_files": []
         }
 
+
     total_changes = 0
     total_additions = 0
     total_deletions = 0
     total_churn = 0
+
 
     for filename, stats in file_analysis.items():
 
@@ -42,51 +42,80 @@ def calculate_file_metrics(file_analysis):
             0
         )
 
-    total_files = len(file_analysis)
+
+    total_files = len(
+        file_analysis
+    )
+
 
     average_churn = (
+
         total_churn / total_files
+
         if total_files > 0
+
         else 0
     )
 
+
     top_changed_files = sorted(
+
         file_analysis.items(),
-        key=lambda item: item[1].get(
+
+        key=lambda item:
+        item[1].get(
             "changes",
             0
         ),
+
         reverse=True
+
     )[:10]
 
+
     top_churn_files = sorted(
+
         file_analysis.items(),
-        key=lambda item: item[1].get(
+
+        key=lambda item:
+        item[1].get(
             "churn",
             0
         ),
+
         reverse=True
+
     )[:10]
 
+
     return {
-        "total_files_analyzed": total_files,
 
-        "total_changes": total_changes,
+        "total_files_analyzed":
+            total_files,
 
-        "total_additions": total_additions,
+        "total_changes":
+            total_changes,
 
-        "total_deletions": total_deletions,
+        "total_additions":
+            total_additions,
 
-        "total_churn": total_churn,
+        "total_deletions":
+            total_deletions,
 
-        "average_churn_per_file": round(
-            average_churn,
-            2
-        ),
+        "total_churn":
+            total_churn,
+
+        "average_churn_per_file":
+            round(
+                average_churn,
+                2
+            ),
 
         "top_changed_files": [
+
             {
                 "file": filename,
+
                 "changes": stats.get(
                     "changes",
                     0
@@ -98,6 +127,7 @@ def calculate_file_metrics(file_analysis):
         ],
 
         "top_churn_files": [
+
             {
                 "file": filename,
 
@@ -127,154 +157,181 @@ def calculate_repository_metrics(
     repository,
     contributors,
     commits,
-    file_analysis
+    file_analysis,
+    open_issues=0
 ):
-    """
-    Calculate repository-level software metrics.
-    """
 
     file_metrics = calculate_file_metrics(
         file_analysis
     )
 
+
     contributor_count = (
+
         len(contributors)
+
         if contributors
+
         else 0
     )
+
 
     commit_count = (
+
         len(commits)
+
         if commits
+
         else 0
     )
 
-    open_issues = repository.get(
-        "open_issues_count",
-        0
-    )
 
     return {
-        "contributors": contributor_count,
 
-        "commits_analyzed": commit_count,
+        "contributors":
+            contributor_count,
 
-        "open_issues": open_issues,
+        "commits_analyzed":
+            commit_count,
 
-        "file_metrics": file_metrics
+        "open_issues":
+            open_issues,
+
+        "file_metrics":
+            file_metrics
     }
 
 
 def calculate_health_indicators(
     repository_metrics
 ):
-    """
-    Calculate rule-based repository
-    activity indicators.
-
-    These are heuristic indicators,
-    not ML predictions.
-    """
 
     file_metrics = repository_metrics.get(
         "file_metrics",
         {}
     )
 
+
     total_churn = file_metrics.get(
         "total_churn",
         0
     )
+
 
     total_changes = file_metrics.get(
         "total_changes",
         0
     )
 
+
     contributors = repository_metrics.get(
         "contributors",
         0
     )
+
 
     commits = repository_metrics.get(
         "commits_analyzed",
         0
     )
 
+
     open_issues = repository_metrics.get(
         "open_issues",
         0
     )
 
+
     if commits >= 200:
+
         commit_activity = "HIGH"
 
     elif commits >= 50:
+
         commit_activity = "MEDIUM"
 
     else:
+
         commit_activity = "LOW"
 
+
     if total_churn >= 10000:
+
         churn_activity = "HIGH"
 
     elif total_churn >= 3000:
+
         churn_activity = "MEDIUM"
 
     else:
+
         churn_activity = "LOW"
 
+
     if contributors >= 20:
+
         contributor_activity = "HIGH"
 
     elif contributors >= 5:
+
         contributor_activity = "MEDIUM"
 
     else:
+
         contributor_activity = "LOW"
 
+
     if open_issues >= 100:
+
         issue_activity = "HIGH"
 
     elif open_issues >= 20:
+
         issue_activity = "MEDIUM"
 
     else:
+
         issue_activity = "LOW"
 
+
     if total_changes >= 100:
+
         change_activity = "HIGH"
 
     elif total_changes >= 30:
+
         change_activity = "MEDIUM"
 
     else:
+
         change_activity = "LOW"
 
+
     return {
-        "commit_activity": commit_activity,
 
-        "code_churn": churn_activity,
+        "commit_activity":
+            commit_activity,
 
-        "contributor_activity": contributor_activity,
+        "code_churn":
+            churn_activity,
 
-        "issue_activity": issue_activity,
+        "contributor_activity":
+            contributor_activity,
 
-        "change_activity": change_activity
+        "issue_activity":
+            issue_activity,
+
+        "change_activity":
+            change_activity
     }
 
 
 def calculate_health_score(
     health_indicators
 ):
-    """
-    Calculate a preliminary repository
-    health score using rule-based penalties.
-
-    This is NOT an ML prediction.
-    """
 
     score = 100
+
 
     if health_indicators.get(
         "commit_activity"
@@ -288,6 +345,7 @@ def calculate_health_score(
 
         score -= 5
 
+
     if health_indicators.get(
         "code_churn"
     ) == "HIGH":
@@ -299,6 +357,7 @@ def calculate_health_score(
     ) == "MEDIUM":
 
         score -= 10
+
 
     if health_indicators.get(
         "contributor_activity"
@@ -312,6 +371,7 @@ def calculate_health_score(
 
         score -= 2
 
+
     if health_indicators.get(
         "issue_activity"
     ) == "HIGH":
@@ -323,6 +383,7 @@ def calculate_health_score(
     ) == "MEDIUM":
 
         score -= 10
+
 
     if health_indicators.get(
         "change_activity"
@@ -336,6 +397,7 @@ def calculate_health_score(
 
         score -= 7
 
+
     score = max(
         0,
         min(
@@ -344,17 +406,24 @@ def calculate_health_score(
         )
     )
 
+
     if score >= 80:
+
         category = "HEALTHY"
 
     elif score >= 60:
+
         category = "MODERATE"
 
     else:
+
         category = "AT_RISK"
 
+
     return {
+
         "score": score,
+
         "category": category
     }
 
@@ -362,22 +431,14 @@ def calculate_health_score(
 def calculate_file_risk_indicators(
     file_analysis
 ):
-    """
-    Identify potentially risky files using:
-
-    - change frequency
-    - code churn
-    - contributor count
-
-    This is a rule-based baseline.
-
-    It is NOT an ML prediction.
-    """
 
     if not file_analysis:
+
         return []
 
+
     risk_files = []
+
 
     for filename, stats in file_analysis.items():
 
@@ -386,36 +447,41 @@ def calculate_file_risk_indicators(
             0
         )
 
+
         additions = stats.get(
             "additions",
             0
         )
+
 
         deletions = stats.get(
             "deletions",
             0
         )
 
+
         churn = stats.get(
             "churn",
             additions + deletions
         )
+
 
         contributors = stats.get(
             "contributors",
             []
         )
 
+
         contributor_count = stats.get(
             "contributor_count",
             len(contributors)
         )
 
+
         risk_points = 0
 
         reasons = []
 
-        # Change frequency
 
         if changes >= 20:
 
@@ -433,7 +499,6 @@ def calculate_file_risk_indicators(
                 "Regularly modified"
             )
 
-        # Code churn
 
         if churn >= 1000:
 
@@ -459,7 +524,6 @@ def calculate_file_risk_indicators(
                 "Moderate code churn"
             )
 
-        # Contributor count
 
         if contributor_count >= 5:
 
@@ -477,11 +541,11 @@ def calculate_file_risk_indicators(
                 "Modified by multiple contributors"
             )
 
-        # Maximum points = 7
 
         risk_score = round(
             (risk_points / 7) * 100
         )
+
 
         if risk_points >= 5:
 
@@ -495,19 +559,25 @@ def calculate_file_risk_indicators(
 
             risk_level = "LOW"
 
+
         if risk_points > 0:
 
             risk_files.append({
 
-                "file": filename,
+                "file":
+                    filename,
 
-                "changes": changes,
+                "changes":
+                    changes,
 
-                "additions": additions,
+                "additions":
+                    additions,
 
-                "deletions": deletions,
+                "deletions":
+                    deletions,
 
-                "churn": churn,
+                "churn":
+                    churn,
 
                 "contributor_count":
                     contributor_count,
@@ -528,13 +598,20 @@ def calculate_file_risk_indicators(
                     reasons
             })
 
+
     risk_files.sort(
+
         key=lambda item: (
+
             item["risk_score"],
+
             item["churn"]
+
         ),
+
         reverse=True
     )
+
 
     return risk_files[:20]
 
@@ -542,10 +619,6 @@ def calculate_file_risk_indicators(
 def calculate_risk_summary(
     file_risk
 ):
-    """
-    Calculate a summary of file-level
-    risk levels.
-    """
 
     high_risk_files = 0
 
@@ -553,12 +626,14 @@ def calculate_risk_summary(
 
     low_risk_files = 0
 
+
     for file in file_risk:
 
         risk_level = file.get(
             "risk_level",
             "LOW"
         )
+
 
         if risk_level == "HIGH":
 
@@ -572,13 +647,17 @@ def calculate_risk_summary(
 
             low_risk_files += 1
 
+
     total_risky_files = (
+
         high_risk_files
         + medium_risk_files
         + low_risk_files
     )
 
+
     return {
+
         "total_risky_files":
             total_risky_files,
 
@@ -596,12 +675,9 @@ def calculate_risk_summary(
 def calculate_risk_reason_summary(
     file_risk
 ):
-    """
-    Count how frequently each risk reason
-    appears across the analyzed files.
-    """
 
     reason_counts = {}
+
 
     for file in file_risk:
 
@@ -610,22 +686,32 @@ def calculate_risk_reason_summary(
             []
         )
 
+
         for reason in reasons:
 
             if reason not in reason_counts:
 
                 reason_counts[reason] = 0
 
+
             reason_counts[reason] += 1
 
+
     sorted_reasons = sorted(
+
         reason_counts.items(),
-        key=lambda item: item[1],
+
+        key=lambda item:
+        item[1],
+
         reverse=True
     )
 
+
     return {
+
         reason: count
+
         for reason, count
         in sorted_reasons
     }

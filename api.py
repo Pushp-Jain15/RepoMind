@@ -108,14 +108,29 @@ def analyze_repository(url: str):
         repo
     )
 
-    issues = get_issues(
+    issues_data = get_issues(
         owner,
         repo
     )
 
 
     # -----------------------------------
-    # Step 4: Analyze file changes
+    # Step 4: Separate issues and PRs
+    # -----------------------------------
+
+    actual_issues = issues_data.get(
+        "issues",
+        []
+    )
+
+    pull_requests = issues_data.get(
+        "pull_requests",
+        []
+    )
+
+
+    # -----------------------------------
+    # Step 5: Analyze file changes
     # -----------------------------------
 
     file_stats = analyze_file_changes(
@@ -126,7 +141,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 5: Calculate file risk
+    # Step 6: Calculate file risk
     # -----------------------------------
 
     file_risk = calculate_file_risk_indicators(
@@ -135,7 +150,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 6: Calculate risk summary
+    # Step 7: Calculate risk summary
     # -----------------------------------
 
     risk_summary = calculate_risk_summary(
@@ -144,37 +159,44 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 7: Calculate risk reasons
+    # Step 8: Calculate risk reasons
     # -----------------------------------
 
-    risk_reason_summary = calculate_risk_reason_summary(
-        file_risk
+    risk_reason_summary = (
+        calculate_risk_reason_summary(
+            file_risk
+        )
     )
 
 
     # -----------------------------------
-    # Step 8: Calculate repository metrics
+    # Step 9: Calculate repository metrics
     # -----------------------------------
 
-    repository_metrics = calculate_repository_metrics(
-        data,
-        contributors,
-        commits,
-        file_stats
+    repository_metrics = (
+        calculate_repository_metrics(
+            data,
+            contributors,
+            commits,
+            file_stats,
+            open_issues=len(actual_issues)
+        )
     )
 
 
     # -----------------------------------
-    # Step 9: Calculate health indicators
+    # Step 10: Health indicators
     # -----------------------------------
 
-    health_indicators = calculate_health_indicators(
-        repository_metrics
+    health_indicators = (
+        calculate_health_indicators(
+            repository_metrics
+        )
     )
 
 
     # -----------------------------------
-    # Step 10: Calculate health score
+    # Step 11: Health score
     # -----------------------------------
 
     health_score = calculate_health_score(
@@ -183,7 +205,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 11: Save analysis
+    # Step 12: Save analysis
     # -----------------------------------
 
     db = SessionLocal()
@@ -243,9 +265,7 @@ def analyze_repository(url: str):
                 ],
 
             open_issues=
-                data[
-                    "open_issues_count"
-                ]
+                len(actual_issues)
         )
 
 
@@ -262,7 +282,7 @@ def analyze_repository(url: str):
 
 
     # -----------------------------------
-    # Step 12: API response
+    # Step 13: API response
     # -----------------------------------
 
     result = {
@@ -285,7 +305,7 @@ def analyze_repository(url: str):
                 data["forks_count"],
 
             "open_issues":
-                data["open_issues_count"],
+                len(actual_issues),
 
             "created_at":
                 data["created_at"],
@@ -367,10 +387,15 @@ def analyze_repository(url: str):
 
         "issues": {
 
-            "open_issues_fetched":
-                len(issues)
-                if issues
-                else 0
+            "actual_open_issues":
+                len(actual_issues),
+
+            "open_pull_requests":
+                len(pull_requests),
+
+            "total_items_fetched":
+                len(actual_issues)
+                + len(pull_requests)
         },
 
 

@@ -64,11 +64,9 @@ def github_get(
             timeout=30
         )
 
-
         if response.status_code == 200:
 
             return response.json()
-
 
         if response.status_code == 403:
 
@@ -83,7 +81,6 @@ def github_get(
 
             return None
 
-
         if response.status_code == 404:
 
             print(
@@ -93,7 +90,6 @@ def github_get(
 
             return None
 
-
         print(
             f"GitHub API error: "
             f"{response.status_code} "
@@ -101,7 +97,6 @@ def github_get(
         )
 
         return None
-
 
     except requests.RequestException as error:
 
@@ -176,14 +171,12 @@ def get_commits(
 
     page = 1
 
-
     while page <= 3:
 
         url = (
             f"https://api.github.com/repos/"
             f"{owner}/{repo}/commits"
         )
-
 
         commits = github_get(
 
@@ -195,24 +188,19 @@ def get_commits(
             }
         )
 
-
         if commits is None:
 
             break
-
 
         if not commits:
 
             break
 
-
         all_commits.extend(
             commits
         )
 
-
         page += 1
-
 
     return all_commits
 
@@ -225,8 +213,17 @@ def get_issues(
     owner,
     repo
 ):
+    """
+    Get open GitHub issues.
 
-    return github_get(
+    GitHub's issues endpoint can also
+    return pull requests.
+
+    This function separates actual
+    issues from pull requests.
+    """
+
+    items = github_get(
 
         f"https://api.github.com/repos/"
         f"{owner}/{repo}/issues",
@@ -236,6 +233,43 @@ def get_issues(
             "per_page": 100
         }
     )
+
+
+    if items is None:
+
+        return {
+            "issues": [],
+            "pull_requests": []
+        }
+
+
+    actual_issues = []
+
+    pull_requests = []
+
+
+    for item in items:
+
+        # Pull requests contain
+        # a "pull_request" field.
+
+        if "pull_request" in item:
+
+            pull_requests.append(
+                item
+            )
+
+        else:
+
+            actual_issues.append(
+                item
+            )
+
+
+    return {
+        "issues": actual_issues,
+        "pull_requests": pull_requests
+    }
 
 
 # -----------------------------------
@@ -288,7 +322,6 @@ def analyze_file_changes(
             "sha"
         )
 
-
         if not sha:
 
             continue
@@ -299,7 +332,6 @@ def analyze_file_changes(
             repo,
             sha
         )
-
 
         if not details:
 
@@ -330,7 +362,8 @@ def analyze_file_changes(
             )
 
 
-        # GitHub author may sometimes be unavailable
+        # GitHub author may sometimes
+        # be unavailable.
 
         if not author_login:
 
@@ -380,10 +413,6 @@ def analyze_file_changes(
                 }
 
 
-            # -----------------------------------
-            # File statistics
-            # -----------------------------------
-
             additions = file.get(
                 "additions",
                 0
@@ -423,7 +452,6 @@ def analyze_file_changes(
                 file_stats[filename][
                     "deletions"
                 ]
-
             )
 
 
