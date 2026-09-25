@@ -5,43 +5,58 @@ import requests
 from dotenv import load_dotenv
 
 
-# ============================================================
-# LOAD ENVIRONMENT VARIABLES
-# ============================================================
+# -----------------------------------
+# Environment configuration
+# -----------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
 
-load_dotenv(BASE_DIR / ".env")
+load_dotenv(
+    BASE_DIR / ".env"
+)
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_TOKEN = os.getenv(
+    "GITHUB_TOKEN"
+)
 
 
-# ============================================================
-# GITHUB API HEADERS
-# ============================================================
+# -----------------------------------
+# GitHub API headers
+# -----------------------------------
 
 HEADERS = {
     "Accept": "application/vnd.github+json",
     "X-GitHub-Api-Version": "2022-11-28"
 }
 
+
 if GITHUB_TOKEN:
-    HEADERS["Authorization"] = f"Bearer {GITHUB_TOKEN}"
+
+    HEADERS["Authorization"] = (
+        f"Bearer {GITHUB_TOKEN}"
+    )
 
 
-print("GitHub token loaded:", bool(GITHUB_TOKEN))
+print(
+    "GitHub token loaded:",
+    bool(GITHUB_TOKEN)
+)
 
 
-# ============================================================
-# HELPER FUNCTION
-# ============================================================
+# -----------------------------------
+# Generic GitHub GET request
+# -----------------------------------
 
-def github_get(url, params=None):
+def github_get(
+    url,
+    params=None
+):
     """
-    Send an authenticated GET request to GitHub API.
+    Send a GET request to the GitHub API.
     """
 
     try:
+
         response = requests.get(
             url,
             headers=HEADERS,
@@ -49,146 +64,235 @@ def github_get(url, params=None):
             timeout=30
         )
 
+
         if response.status_code == 200:
+
             return response.json()
 
+
         if response.status_code == 403:
-            print("GitHub API returned 403.")
-            print("Response:", response.text[:300])
+
+            print(
+                "GitHub API returned 403."
+            )
+
+            print(
+                "Response:",
+                response.text[:300]
+            )
+
             return None
+
 
         if response.status_code == 404:
-            print("GitHub resource not found:", url)
+
+            print(
+                "GitHub resource not found:",
+                url
+            )
+
             return None
 
+
         print(
-            f"GitHub API error: {response.status_code} "
+            f"GitHub API error: "
+            f"{response.status_code} "
             f"for {url}"
         )
 
         return None
 
+
     except requests.RequestException as error:
-        print("GitHub request failed:", error)
+
+        print(
+            "GitHub request failed:",
+            error
+        )
+
         return None
 
 
-# ============================================================
-# REPOSITORY
-# ============================================================
+# -----------------------------------
+# Repository information
+# -----------------------------------
 
-def get_repository(owner, repo):
+def get_repository(
+    owner,
+    repo
+):
 
-    url = f"https://api.github.com/repos/{owner}/{repo}"
-
-    return github_get(url)
-
-
-# ============================================================
-# LANGUAGES
-# ============================================================
-
-def get_languages(owner, repo):
-
-    url = f"https://api.github.com/repos/{owner}/{repo}/languages"
-
-    return github_get(url)
+    return github_get(
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}"
+    )
 
 
-# ============================================================
-# CONTRIBUTORS
-# ============================================================
+# -----------------------------------
+# Repository languages
+# -----------------------------------
 
-def get_contributors(owner, repo):
+def get_languages(
+    owner,
+    repo
+):
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/contributors"
-
-    params = {
-        "per_page": 100
-    }
-
-    return github_get(url, params=params)
+    return github_get(
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/languages"
+    )
 
 
-# ============================================================
-# COMMITS
-# ============================================================
+# -----------------------------------
+# Repository contributors
+# -----------------------------------
 
-def get_commits(owner, repo):
+def get_contributors(
+    owner,
+    repo
+):
+
+    return github_get(
+
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/contributors",
+
+        params={
+            "per_page": 100
+        }
+    )
+
+
+# -----------------------------------
+# Repository commits
+# -----------------------------------
+
+def get_commits(
+    owner,
+    repo
+):
 
     all_commits = []
 
     page = 1
 
+
     while page <= 3:
 
-        url = f"https://api.github.com/repos/{owner}/{repo}/commits"
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/commits"
+        )
 
-        params = {
-            "page": page,
-            "per_page": 100
-        }
 
-        commits = github_get(url, params=params)
+        commits = github_get(
+
+            url,
+
+            params={
+                "page": page,
+                "per_page": 100
+            }
+        )
+
 
         if commits is None:
+
             break
+
 
         if not commits:
+
             break
 
-        all_commits.extend(commits)
+
+        all_commits.extend(
+            commits
+        )
+
 
         page += 1
+
 
     return all_commits
 
 
-# ============================================================
-# ISSUES
-# ============================================================
+# -----------------------------------
+# Repository issues
+# -----------------------------------
 
-def get_issues(owner, repo):
+def get_issues(
+    owner,
+    repo
+):
 
-    url = f"https://api.github.com/repos/{owner}/{repo}/issues"
+    return github_get(
 
-    params = {
-        "state": "open",
-        "per_page": 100
-    }
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/issues",
 
-    return github_get(url, params=params)
+        params={
+            "state": "open",
+            "per_page": 100
+        }
+    )
 
 
-# ============================================================
-# COMMIT DETAILS
-# ============================================================
+# -----------------------------------
+# Commit details
+# -----------------------------------
 
-def get_commit_details(owner, repo, sha):
+def get_commit_details(
+    owner,
+    repo,
+    sha
+):
 
-    url = (
+    return github_get(
+
         f"https://api.github.com/repos/"
         f"{owner}/{repo}/commits/{sha}"
     )
 
-    return github_get(url)
 
+# -----------------------------------
+# Analyze changed files
+# -----------------------------------
 
-# ============================================================
-# FILE CHANGE ANALYSIS
-# ============================================================
+def analyze_file_changes(
+    owner,
+    repo,
+    commits
+):
+    """
+    Analyze file-level changes from
+    recent Git commits.
 
-def analyze_file_changes(owner, repo, commits):
+    Tracks:
+
+    - number of changes
+    - additions
+    - deletions
+    - churn
+    - contributors
+    """
 
     file_stats = {}
 
+
     # Analyze latest 30 commits
+
     for commit in commits[:30]:
 
-        sha = commit.get("sha")
+        sha = commit.get(
+            "sha"
+        )
+
 
         if not sha:
+
             continue
+
 
         details = get_commit_details(
             owner,
@@ -196,40 +300,166 @@ def analyze_file_changes(owner, repo, commits):
             sha
         )
 
+
         if not details:
+
             continue
 
-        files = details.get("files", [])
+
+        files = details.get(
+            "files",
+            []
+        )
+
+
+        # -----------------------------------
+        # Identify commit contributor
+        # -----------------------------------
+
+        author_login = None
+
+        author_data = details.get(
+            "author"
+        )
+
+
+        if author_data:
+
+            author_login = author_data.get(
+                "login"
+            )
+
+
+        # GitHub author may sometimes be unavailable
+
+        if not author_login:
+
+            commit_author = (
+                details
+                .get("commit", {})
+                .get("author", {})
+                .get("name")
+            )
+
+            author_login = commit_author
+
+
+        # -----------------------------------
+        # Process every changed file
+        # -----------------------------------
 
         for file in files:
 
-            filename = file.get("filename")
+            filename = file.get(
+                "filename"
+            )
+
 
             if not filename:
+
                 continue
+
+
+            # -----------------------------------
+            # Initialize file
+            # -----------------------------------
 
             if filename not in file_stats:
 
                 file_stats[filename] = {
+
                     "changes": 0,
+
                     "additions": 0,
+
                     "deletions": 0,
-                    "churn": 0
+
+                    "churn": 0,
+
+                    "contributors": set()
                 }
 
-            additions = file.get("additions", 0)
-            deletions = file.get("deletions", 0)
 
-            file_stats[filename]["changes"] += 1
+            # -----------------------------------
+            # File statistics
+            # -----------------------------------
 
-            file_stats[filename]["additions"] += additions
-
-            file_stats[filename]["deletions"] += deletions
-
-            file_stats[filename]["churn"] = (
-                file_stats[filename]["additions"]
-                +
-                file_stats[filename]["deletions"]
+            additions = file.get(
+                "additions",
+                0
             )
+
+            deletions = file.get(
+                "deletions",
+                0
+            )
+
+
+            file_stats[filename][
+                "changes"
+            ] += 1
+
+
+            file_stats[filename][
+                "additions"
+            ] += additions
+
+
+            file_stats[filename][
+                "deletions"
+            ] += deletions
+
+
+            file_stats[filename][
+                "churn"
+            ] = (
+
+                file_stats[filename][
+                    "additions"
+                ]
+
+                +
+
+                file_stats[filename][
+                    "deletions"
+                ]
+
+            )
+
+
+            # -----------------------------------
+            # Track contributor
+            # -----------------------------------
+
+            if author_login:
+
+                file_stats[filename][
+                    "contributors"
+                ].add(
+                    author_login
+                )
+
+
+    # -----------------------------------
+    # Convert sets to JSON-safe lists
+    # -----------------------------------
+
+    for filename, stats in file_stats.items():
+
+        contributors = stats.get(
+            "contributors",
+            set()
+        )
+
+
+        stats["contributors"] = sorted(
+            contributors
+        )
+
+
+        stats["contributor_count"] = len(
+            contributors
+        )
+
 
     return file_stats
