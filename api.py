@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from sqlalchemy.orm import Session
 
-from database import SessionLocal, Repository, Analysis
+from database import (
+    SessionLocal,
+    Repository,
+    Analysis
+)
 
 from github_api import (
     get_repository,
@@ -10,7 +14,8 @@ from github_api import (
     get_commits,
     get_issues,
     analyze_file_changes,
-    analyze_repository_files
+    analyze_repository_files,
+    analyze_code_metrics
 )
 
 from metrics import (
@@ -74,7 +79,7 @@ def analyze_repository(
 ):
 
     # -----------------------------------------------------
-    # Extract owner and repository
+    # Extract repository information
     # -----------------------------------------------------
 
     try:
@@ -92,7 +97,7 @@ def analyze_repository(
 
 
     # -----------------------------------------------------
-    # Get repository information
+    # Repository information
     # -----------------------------------------------------
 
     data = get_repository(
@@ -112,7 +117,7 @@ def analyze_repository(
 
 
     # -----------------------------------------------------
-    # Get repository language information
+    # Languages
     # -----------------------------------------------------
 
     languages = get_languages(
@@ -121,11 +126,12 @@ def analyze_repository(
     )
 
     if languages is None:
+
         languages = {}
 
 
     # -----------------------------------------------------
-    # Get contributors
+    # Contributors
     # -----------------------------------------------------
 
     contributors = get_contributors(
@@ -134,11 +140,12 @@ def analyze_repository(
     )
 
     if contributors is None:
+
         contributors = []
 
 
     # -----------------------------------------------------
-    # Get commits
+    # Commits
     # -----------------------------------------------------
 
     commits = get_commits(
@@ -147,11 +154,12 @@ def analyze_repository(
     )
 
     if commits is None:
+
         commits = []
 
 
     # -----------------------------------------------------
-    # Get issues and pull requests
+    # Issues and pull requests
     # -----------------------------------------------------
 
     issues_data = get_issues(
@@ -171,7 +179,7 @@ def analyze_repository(
 
 
     # -----------------------------------------------------
-    # Analyze file changes
+    # File change analysis
     # -----------------------------------------------------
 
     file_stats = analyze_file_changes(
@@ -182,7 +190,7 @@ def analyze_repository(
 
 
     # -----------------------------------------------------
-    # Analyze repository file structure
+    # Repository file structure
     # -----------------------------------------------------
 
     default_branch = data.get(
@@ -190,10 +198,27 @@ def analyze_repository(
         "main"
     )
 
-    file_structure = analyze_repository_files(
+    file_structure = (
+        analyze_repository_files(
+            owner,
+            repo,
+            default_branch
+        )
+    )
+
+
+    # -----------------------------------------------------
+    # Code-level metrics
+    # -----------------------------------------------------
+
+    code_metrics = analyze_code_metrics(
         owner,
         repo,
-        default_branch
+        file_structure[
+            "source_files"
+        ],
+        default_branch,
+        max_files=30
     )
 
 
@@ -201,8 +226,10 @@ def analyze_repository(
     # File risk analysis
     # -----------------------------------------------------
 
-    file_risk = calculate_file_risk_indicators(
-        file_stats
+    file_risk = (
+        calculate_file_risk_indicators(
+            file_stats
+        )
     )
 
 
@@ -210,8 +237,10 @@ def analyze_repository(
     # Risk summary
     # -----------------------------------------------------
 
-    risk_summary = calculate_risk_summary(
-        file_risk
+    risk_summary = (
+        calculate_risk_summary(
+            file_risk
+        )
     )
 
 
@@ -258,8 +287,10 @@ def analyze_repository(
     # Health score
     # -----------------------------------------------------
 
-    health_score = calculate_health_score(
-        health_indicators
+    health_score = (
+        calculate_health_score(
+            health_indicators
+        )
     )
 
 
@@ -275,7 +306,8 @@ def analyze_repository(
             db.query(Repository)
             .filter(
                 Repository.url
-                == github_url.strip().rstrip("/")
+                ==
+                github_url.strip().rstrip("/")
             )
             .first()
         )
@@ -285,29 +317,43 @@ def analyze_repository(
             repository = Repository(
                 owner=owner,
                 name=repo,
-                url=github_url.strip().rstrip("/")
+                url=(
+                    github_url
+                    .strip()
+                    .rstrip("/")
+                )
             )
 
             db.add(repository)
+
             db.commit()
-            db.refresh(repository)
+
+            db.refresh(
+                repository
+            )
+
 
         analysis = Analysis(
             repository_id=repository.id,
+
             stars=data.get(
                 "stargazers_count",
                 0
             ),
+
             forks=data.get(
                 "forks_count",
                 0
             ),
+
             open_issues=len(
                 actual_issues
             )
         )
 
-        db.add(analysis)
+        db.add(
+            analysis
+        )
 
         db.commit()
 
@@ -317,53 +363,71 @@ def analyze_repository(
 
 
     # -----------------------------------------------------
-    # Final response
+    # Final API response
     # -----------------------------------------------------
 
     return {
 
         "repository": {
+
             "name": data.get(
                 "name"
             ),
+
             "full_name": data.get(
                 "full_name"
             ),
+
             "owner": owner,
+
             "url": data.get(
                 "html_url"
             ),
+
             "description": data.get(
                 "description"
             ),
-            "default_branch": default_branch,
+
+            "default_branch": (
+                default_branch
+            ),
+
             "stars": data.get(
                 "stargazers_count",
                 0
             ),
+
             "forks": data.get(
                 "forks_count",
                 0
             ),
+
             "language": data.get(
                 "language"
             )
         },
 
+
         "languages": languages,
 
+
         "contributors": {
+
             "total": len(
                 contributors
             ),
+
             "data": contributors
         },
 
+
         "commits": {
+
             "analyzed": len(
                 commits
             )
         },
+
 
         "issues": {
 
@@ -377,27 +441,53 @@ def analyze_repository(
 
             "total_items_fetched": (
                 len(actual_issues)
-                + len(pull_requests)
+                +
+                len(pull_requests)
             )
         },
 
-        "file_structure": file_structure,
 
-        "file_analysis": file_stats,
+        "file_structure": (
+            file_structure
+        ),
 
-        "file_risk": file_risk,
 
-        "risk_summary": risk_summary,
+        "code_metrics": (
+            code_metrics
+        ),
+
+
+        "file_analysis": (
+            file_stats
+        ),
+
+
+        "file_risk": (
+            file_risk
+        ),
+
+
+        "risk_summary": (
+            risk_summary
+        ),
+
 
         "risk_reason_summary": (
             risk_reason_summary
         ),
 
-        "metrics": repository_metrics,
+
+        "metrics": (
+            repository_metrics
+        ),
+
 
         "health_indicators": (
             health_indicators
         ),
 
-        "health_score": health_score
+
+        "health_score": (
+            health_score
+        )
     }
